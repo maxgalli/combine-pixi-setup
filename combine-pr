@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# combine-pr — check out and build a Combine PR in the review sandbox.
+#
+#   combine-pr 1250              check out in place, build
+#   combine-pr 1250 --test       ... and compile tests + run ctest
+#   combine-pr 1250 --worktree   isolate in its own worktree (parallel review)
+#   combine-pr 1250 --rm         remove that PR's worktree
+#   combine-pr --list            show worktrees
+#
+# In-place is the default because this clone is dedicated to reviewing: moving
+# its branch costs nothing, and one shared pixi environment means incremental
+# rebuilds. Use --worktree only when you need two PRs alive at once.
+set -euo pipefail
+
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+MAIN=${COMBINE_MAIN:-$HERE/HiggsAnalysis/CombinedLimit}
+PR_ROOT=${COMBINE_PR_ROOT:-$HERE/pr-review}
+
+die() { echo "combine-pr: $*" >&2; exit 1; }
+
+[ -d "$MAIN/.git" ] || die "no clone at $MAIN — run setup.sh first"
+
+if [ "${1:-}" = "--list" ]; then
+  git -C "$MAIN" worktree list
+  exit 0
+fi
+
+[ $# -ge 1 ] || die "usage: combine-pr <PR-number> [--test|--worktree|--rm]"
+PR=$1; shift
+
+WITH_TESTS=0
+USE_WORKTREE=0
+for arg in "$@"; do
+  case "$arg" in
+    --test)     WITH_TESTS=1 ;;
+    --worktree) USE_WORKTREE=1 ;;
+    --rm)
+      git -C "$MAIN" worktree remove --force "$PR_ROOT/pr-$PR/HiggsAnalysis/CombinedLimit" 2>/dev/null || true
+      rm -rf "${PR_ROOT:?}/pr-$PR"
+      git -C "$MAIN" branch -D "pr-$PR" 2>/dev/null || true
+      echo ">>> Removed worktree for PR #$PR"
+      exit 0
+      ;;
+    *) die "unknown option: $arg" ;;
+  esac
+done
+
+if [ "$USE_WORKTREE" = "1" ]; then
+  # Same path rule as the main clone: source at .../HiggsAnalysis/CombinedLimit,
+  # build dir as its sibling.
+  WT="$PR_ROOT/pr-$PR/HiggsAnalysis/CombinedLimit"
+  git -C "$MAIN" fetch origin "pull/$PR/head:pr-$PR" --force
+  if [ -d "$WT" ]; then
+    git -C "$WT" reset --hard "pr-$PR"
+  else
+    mkdir -p "$(dirname "$WT")"
+    git -C "$MAIN" worktree add "$WT" "pr-$PR"
+  fi
+  TARGET="$WT"
+else
+  TARGET="$MAIN"
+  cd "$MAIN"
+  echo ">>> Checking out PR #$PR in place"
+  gh pr checkout "$PR"
+fi
+
+cd "$TARGET"
+
+echo ">>> Solving environment (locked)"
+pixi install --locked
+
+if [ "$WITH_TESTS" = "1" ]; then
+  echo ">>> Building with tests"
+  pixi run install-tests
+  echo ">>> Running ctest"
+  # NOTE the /test suffix: enable_testing() is called in test/CMakeLists.txt,
+  # not at the top level, so tests register in the test/ subdir of the build
+  # tree. Pointing ctest at ../build_combine finds 0 tests and exits 0.
+  pixi run ctest --test-dir ../build_combine/test --output-on-failure
+else
+  echo ">>> Building"
+  pixi run install
+fi
+
+echo
+echo ">>> PR #$PR ready in $TARGET  (branch: $(git -C "$TARGET" rev-parse --abbrev-ref HEAD))"
