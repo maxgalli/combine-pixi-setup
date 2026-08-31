@@ -12,7 +12,9 @@ set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 UPSTREAM=${COMBINE_UPSTREAM:-https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git}
-FORK=${COMBINE_FORK:-git@github.com:maxgalli/HiggsAnalysis-CombinedLimit.git}
+# Your fork, added as remote "myself". Optional: unset means upstream only.
+#   COMBINE_FORK=git@github.com:<you>/HiggsAnalysis-CombinedLimit.git ./setup.sh
+FORK=${COMBINE_FORK:-}
 
 # The path MUST end in HiggsAnalysis/CombinedLimit: CMakeLists.txt symlinks
 # build/HiggsAnalysis/CombinedLimit back to the source root, and the build dir
@@ -30,7 +32,7 @@ else
   echo ">>> Clone already present at $SRC"
 fi
 
-if ! git -C "$SRC" remote | grep -qx myself; then
+if [ -n "$FORK" ] && ! git -C "$SRC" remote | grep -qx myself; then
   echo ">>> Adding remote 'myself' -> $FORK"
   git -C "$SRC" remote add myself "$FORK"
 fi

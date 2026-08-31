@@ -1,4 +1,5 @@
-# Source me:  source /path/to/pixi_dev/env.sh
+# shellcheck shell=bash
+# Source me:  source /path/to/combine-pixi-setup/env.sh
 #
 # Activates the Combine pixi environment for the sandbox clone and puts the
 # helper scripts on PATH. Leaves you in the clone so `git`, `gh` and `claude`
@@ -8,6 +9,7 @@
 if [ -n "${BASH_SOURCE:-}" ]; then
   _combine_env_self="${BASH_SOURCE[0]}"
 elif [ -n "${ZSH_VERSION:-}" ]; then
+  # shellcheck disable=SC2296  # zsh-only expansion, guarded by ZSH_VERSION
   _combine_env_self="${(%):-%x}"
 else
   echo "env.sh: unsupported shell; use bash or zsh" >&2
@@ -35,7 +37,7 @@ case ":$PATH:" in
   *) export PATH="$COMBINE_DEV_ROOT:$PATH" ;;
 esac
 
-cd "$COMBINE_MAIN"
+cd "$COMBINE_MAIN" || return 1
 
 echo "Combine sandbox active"
 echo "  clone   : $COMBINE_MAIN  ($(git -C "$COMBINE_MAIN" rev-parse --abbrev-ref HEAD))"

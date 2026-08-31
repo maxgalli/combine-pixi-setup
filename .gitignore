@@ -1,0 +1,29 @@
+# The Combine clone created by setup.sh (~2.8 GB with its pixi environment and
+# build tree). This repo holds the scripts that create it, never the clone.
+/HiggsAnalysis/
+
+# Per-PR worktrees created by `combine-pr --worktree`.
+/pr-review/
+
+# pixi environments, wherever they end up.
+.pixi/
+
+# CMake / build leftovers, in case anyone configures in-tree by mistake.
+build/
+build_combine/
+CMakeCache.txt
+CMakeFiles/
+
+# ROOT and Combine run artifacts, if you ever run combine from this directory.
+*.root
+core.*
+higgsCombine*.root
+combine_logger.out
+
+# macOS
+.DS_Store
+
+# Editors
+*.swp
+.idea/
+.vscode/

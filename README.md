@@ -13,7 +13,7 @@ Everything lives under this directory and nothing leaks into your other
 checkouts:
 
 ```
-pixi_dev/
+combine-pixi-setup/
 ├── setup.sh                        one-time setup (idempotent)
 ├── env.sh                          source this in every new shell
 ├── combine-pr                      PR checkout + build + test
@@ -24,10 +24,27 @@ pixi_dev/
 └── pr-review/                      per-PR worktrees (only with --worktree)
 ```
 
+## Prerequisites
+
+- [`pixi`](https://pixi.sh) — everything else (ROOT, Python, CMake) comes from it
+- `git` and a C++ compiler (on macOS: `xcode-select --install`)
+- [`gh`](https://cli.github.com), authenticated (`gh auth login`) — needed for PR checkout
+- [Claude Code](https://claude.com/claude-code), optional
+
+Verified on macOS/arm64 with `root 6.34.10` from conda-forge. `pixi.toml` also
+lists `linux-64`, `linux-aarch64` and `osx-64`, so Linux should work too, though
+it is untested here.
+
 ## First time
 
 ```sh
 ./setup.sh
+```
+
+To also register your fork as remote `myself`:
+
+```sh
+COMBINE_FORK=git@github.com:<you>/HiggsAnalysis-CombinedLimit.git ./setup.sh
 ```
 
 Clones Combine, adds your fork as `myself`, solves the pixi environment with
@@ -37,7 +54,7 @@ safe — it skips what already exists.
 ## Every session
 
 ```sh
-source ~/Software/Postdoc/Combine/combine-dev/pixi_dev/env.sh
+source /path/to/combine-pixi-setup/env.sh
 ```
 
 That activates the pixi environment (via `pixi shell-hook`, so it works in your
@@ -49,7 +66,7 @@ your `PATH`.
 Worth adding to `~/.zshrc` as an alias:
 
 ```sh
-alias combine-sandbox='source ~/Software/Postdoc/Combine/combine-dev/pixi_dev/env.sh'
+alias combine-sandbox='source /path/to/combine-pixi-setup/env.sh'
 ```
 
 ## Reviewing a PR

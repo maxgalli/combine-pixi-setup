@@ -1,0 +1,29 @@
+# The scripts in this repo are the whole product, so a broken one is a broken
+# repo. Parse them and lint them on every push.
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse-check
+        run: |
+          set -euo pipefail
+          for f in setup.sh combine-pr env.sh; do
+            bash -n "$f" && echo "ok: $f"
+          done
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y shellcheck
+          # -S warning: the info-level SC2317 hits are false positives from the
+          # `return ... || exit ...` guards in the sourced env.sh.
+          shellcheck -S warning setup.sh combine-pr env.sh
