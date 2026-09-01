@@ -37,6 +37,22 @@ if [ -n "$FORK" ] && ! git -C "$SRC" remote | grep -qx myself; then
   git -C "$SRC" remote add myself "$FORK"
 fi
 
+# env.sh drops you inside the clone, so that is where `claude` starts and where
+# it looks for .mcp.json. Link the one from this repo in, and exclude it locally
+# so it never shows up as an untracked file while reviewing a PR.
+if [ -f "$HERE/.mcp.json" ] && [ ! -e "$SRC/.mcp.json" ]; then
+  echo ">>> Linking .mcp.json into the clone"
+  ln -s ../../.mcp.json "$SRC/.mcp.json"
+fi
+# Local-only excludes, so `git status` in the clone shows just the PR's own
+# changes. .git/info/exclude is used instead of .gitignore because the clone is
+# the upstream repo and must stay pristine.
+if [ -d "$SRC/.git" ]; then
+  for pat in '.mcp.json' 'combine_logger.out' '*.root'; do
+    grep -qxF "$pat" "$SRC/.git/info/exclude" 2>/dev/null || echo "$pat" >> "$SRC/.git/info/exclude"
+  done
+fi
+
 cd "$SRC"
 
 echo ">>> Solving pixi environment (locked)"

@@ -84,6 +84,25 @@ moving its branch costs nothing and one shared pixi environment gives you fast
 incremental rebuilds. Reach for `--worktree` only when two PRs need to be alive
 at once — each worktree gets its own `.pixi/` environment.
 
+## The Combine MCP server
+
+`.mcp.json` registers the Combine documentation/code MCP server:
+
+```json
+{ "mcpServers": { "combine": {
+    "type": "http",
+    "url": "https://combine-mcp-git-combine-mcp.app.cern.ch/mcp" } } }
+```
+
+`setup.sh` symlinks it into the clone, because `env.sh` leaves you *inside* the
+clone and that is where Claude Code looks for `.mcp.json`. The symlink is added
+to the clone's `.git/info/exclude`, so it never appears as an untracked file
+while you review a PR.
+
+MCP servers are registered at startup, so start `claude` after sourcing
+`env.sh` — an already-running session will not pick it up. Claude will ask you
+to approve the server the first time.
+
 ## Driving it with Claude
 
 Start Claude Code from inside the sandbox (`env.sh` already put you there):
