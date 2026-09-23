@@ -1,0 +1,39 @@
+# Docs toolchain for the sandbox — deliberately NOT part of Combine's own
+# pixi.toml.
+#
+# Combine's manifest (HiggsAnalysis/CombinedLimit/pixi.toml) describes what it
+# takes to BUILD Combine. Its docs are built by .github/workflows/docs.yml,
+# which pip-installs mkdocs itself, so adding a docs environment there would
+# push a second environment into that repo's pixi.lock (~7k lines) for
+# everyone, to serve a preview only doc authors run.
+#
+# This manifest keeps those packages here instead, in the sandbox, and points
+# mkdocs at the clone with -f. Same versions as the CI workflow installs, so a
+# local preview matches what gets published.
+#
+#   combine-docs           live preview on http://127.0.0.1:8000
+#   combine-docs --build   one-off build into the clone's ./site (gitignored)
+#
+# or, without the wrapper:
+#   pixi run --manifest-path <this dir>/pixi.toml serve
+
+[workspace]
+authors = ["Massimiliano Galli <massimiliano.galli@cern.ch>"]
+channels = ["conda-forge"]
+name = "combine-sandbox-docs"
+platforms = ["linux-64", "linux-aarch64", "osx-arm64", "osx-64"]
+version = "0.1.0"
+
+[dependencies]
+python = "3.12.*"
+mkdocs = ">=1.6,<2"
+mkdocs-material = ">=9.6,<10"
+pymdown-extensions = ">=10,<11"
+mike = ">=2.1,<3"
+
+# Tasks run with this file's directory as cwd, so the clone is one relative hop
+# away. mkdocs resolves docs_dir/site_dir relative to the config file, not to
+# cwd, so both land inside the clone where its .gitignore already covers them.
+[tasks]
+serve = "mkdocs serve -f HiggsAnalysis/CombinedLimit/mkdocs.yml"
+build = "mkdocs build -f HiggsAnalysis/CombinedLimit/mkdocs.yml"

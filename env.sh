@@ -45,4 +45,5 @@ echo "  build   : $COMBINE_BUILD"
 echo "  combine : $(command -v combine || echo 'not built yet - run: pixi run install-tests')"
 echo
 echo "  combine-pr <N> [--test]   check out and build a PR"
+echo "  combine-docs [--build]    preview the documentation site"
 echo "  claude                    start Claude Code in the clone"

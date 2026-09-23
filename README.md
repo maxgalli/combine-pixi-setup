@@ -84,6 +84,30 @@ moving its branch costs nothing and one shared pixi environment gives you fast
 incremental rebuilds. Reach for `--worktree` only when two PRs need to be alive
 at once — each worktree gets its own `.pixi/` environment.
 
+## Previewing the documentation
+
+Combine's docs are a [mkdocs-material](https://squidfunk.github.io/mkdocs-material/)
+site under `docs/` in the clone. To see a change rendered before pushing it:
+
+```sh
+combine-docs                # live preview on http://127.0.0.1:8000, Ctrl-C to stop
+combine-docs --build        # one-off build into the clone's ./site
+combine-docs --port 8001    # another port
+```
+
+The preview reloads as you edit, so leave it running while you work on a page.
+
+The mkdocs toolchain lives in **this** repo's `pixi.toml`, not in Combine's.
+Combine's manifest describes what it takes to *build Combine*, and its docs are
+published by `.github/workflows/docs.yml`, which pip-installs mkdocs itself;
+adding a docs environment there would push a second environment into that
+repo's `pixi.lock` for everyone, to serve a preview only doc authors run. The
+versions here match what that workflow installs, so a local preview matches
+what gets published.
+
+`site/` is written inside the clone, where Combine's own `.gitignore` already
+covers it.
+
 ## The Combine MCP server
 
 `.mcp.json` registers the Combine documentation/code MCP server:

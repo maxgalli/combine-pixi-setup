@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# combine-docs — preview the Combine documentation site from the sandbox.
+#
+#   combine-docs                live preview on http://127.0.0.1:8000 (Ctrl-C to stop)
+#   combine-docs --build        one-off build into the clone's ./site
+#   combine-docs --port 8001    serve on another port
+#
+# The mkdocs toolchain lives in this repo's pixi.toml, not in Combine's: the
+# clone only supplies the Markdown and mkdocs.yml, so nothing here changes the
+# Combine repo or its lock file.
+set -euo pipefail
+
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+MAIN=${COMBINE_MAIN:-$HERE/HiggsAnalysis/CombinedLimit}
+
+die() { echo "combine-docs: $*" >&2; exit 1; }
+
+[ -f "$MAIN/mkdocs.yml" ] || die "no mkdocs.yml at $MAIN — run setup.sh first"
+
+mode=serve
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --build)      mode=build ;;
+    --port)       args+=(--dev-addr "127.0.0.1:${2:?--port needs a number}"); shift ;;
+    -h|--help)    sed -n '2,8p' "$0"; exit 0 ;;
+    *)            args+=("$1") ;;
+  esac
+  shift
+done
+
+[ "$mode" = serve ] && echo "combine-docs: serving $MAIN/docs — Ctrl-C to stop"
+
+# ${args[@]+...}: an empty array is an unbound variable under `set -u` in the
+# bash 3.2 that ships with macOS.
+exec pixi run --manifest-path "$HERE/pixi.toml" "$mode" ${args[@]+"${args[@]}"}
