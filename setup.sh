@@ -44,11 +44,20 @@ if [ -f "$HERE/.mcp.json" ] && [ ! -e "$SRC/.mcp.json" ]; then
   echo ">>> Linking .mcp.json into the clone"
   ln -s ../../.mcp.json "$SRC/.mcp.json"
 fi
+# Same for skills: Claude Code reads .claude/skills/ only from the directory it
+# starts in, not from parents (unlike CLAUDE.md). Link the whole directory so new
+# sandbox skills need no change here. Only skills/ is linked, because the clone
+# keeps its own .claude/settings.local.json.
+if [ -d "$HERE/.claude/skills" ] && [ ! -e "$SRC/.claude/skills" ]; then
+  echo ">>> Linking .claude/skills into the clone"
+  mkdir -p "$SRC/.claude"
+  ln -s ../../../.claude/skills "$SRC/.claude/skills"
+fi
 # Local-only excludes, so `git status` in the clone shows just the PR's own
 # changes. .git/info/exclude is used instead of .gitignore because the clone is
 # the upstream repo and must stay pristine.
 if [ -d "$SRC/.git" ]; then
-  for pat in '.mcp.json' 'combine_logger.out' '*.root'; do
+  for pat in '.mcp.json' '.claude/skills' 'combine_logger.out' '*.root'; do
     grep -qxF "$pat" "$SRC/.git/info/exclude" 2>/dev/null || echo "$pat" >> "$SRC/.git/info/exclude"
   done
 fi

@@ -20,3 +20,8 @@ are in `README.md` next to this file.
 - Remotes in the clone: `origin` = cms-analysis upstream, `myself` = user's fork.
 - Layout constraints: source must end in `HiggsAnalysis/CombinedLimit`; build
   dir `HiggsAnalysis/build_combine` must stay outside the source tree.
+- Skills: sandbox skills live in this repo's `.claude/skills/` (e.g.
+  `combine-release`). Claude Code reads skills only from the directory it
+  starts in, so `setup.sh` symlinks the clone's `.claude/skills` here
+  (excluded via the clone's `.git/info/exclude`). Add or edit skills here, not
+  in the clone.

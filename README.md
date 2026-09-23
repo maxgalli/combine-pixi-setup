@@ -17,6 +17,7 @@ combine-pixi-setup/
 ├── setup.sh                        one-time setup (idempotent)
 ├── env.sh                          source this in every new shell
 ├── combine-pr                      PR checkout + build + test
+├── .claude/skills/                 Claude skills (symlinked into the clone)
 ├── HiggsAnalysis/
 │   ├── CombinedLimit/              the clone  (origin=cms-analysis, myself=fork)
 │   │   └── .pixi/                  the pixi environment
@@ -126,6 +127,24 @@ while you review a PR.
 MCP servers are registered at startup, so start `claude` after sourcing
 `env.sh` — an already-running session will not pick it up. Claude will ask you
 to approve the server the first time.
+
+## Claude skills
+
+Sandbox-specific [skills](https://docs.claude.com/en/docs/claude-code/skills)
+live in this repo under `.claude/skills/`:
+
+- `combine-release` — cut a tagged Combine release: bump the version in
+  `bin/combine.cpp`, `docs/index.md` and the test references, validate with
+  `scripts/check-version.sh`, commit and tag locally, and draft the GitHub
+  release. It always asks before pushing or publishing anything.
+
+Unlike `CLAUDE.md`, which Claude Code also reads from parent directories,
+skills are read only from the `.claude/skills/` of the directory Claude starts
+in, which here is the clone. So `setup.sh` symlinks
+`HiggsAnalysis/CombinedLimit/.claude/skills` to this repo's `.claude/skills`
+and excludes it locally, as it does for `.mcp.json`. Only `skills/` is linked,
+so the clone keeps its own `.claude/settings.local.json`. Add new skills here
+and they show up in the next `claude` session.
 
 ## Driving it with Claude
 
