@@ -1,6 +1,6 @@
 ---
 name: combine-release
-description: Use when cutting a new tagged release of CMS Combine (HiggsAnalysis-CombinedLimit) — bumping the version string across bin/combine.cpp, docs/index.md, and the test reference files, validating with scripts/check-version.sh, committing, tagging, and drafting the GitHub release. Triggers on "release vX.Y.Z", "cut a Combine release", "bump the Combine version", "make a new tag".
+description: Use when cutting a new tagged release of CMS Combine (HiggsAnalysis-CombinedLimit) — bumping the version string across bin/combine.cpp, docs/index.md, and the test reference files on a cut_vX.Y.Z branch, validating with scripts/check-version.sh, pushing the branch to the user's fork for a PR, and after the PR is merged creating the tag and GitHub release. Triggers on "release vX.Y.Z", "cut a Combine release", "bump the Combine version", "make a new tag".
 ---
 
 # Cutting a Combine release
@@ -15,6 +15,21 @@ GitHub release. Treat a clean `check-version.sh` as the definition of
 Run everything from the repository root (the dir containing
 `bin/combine.cpp` and `scripts/check-version.sh`).
 
+**`main` is protected upstream: nothing is ever pushed to it directly.**
+The version bump goes in through a pull request like any other change:
+
+1. commit on a local branch `cut_vX.Y.Z`, created from up-to-date
+   upstream `main`;
+2. push that branch to the user's fork (remote `myself`,
+   `maxgalli/HiggsAnalysis-CombinedLimit`);
+3. the user opens the PR from the GitHub web UI and merges it once CI
+   passes — you do not open or merge it;
+4. after the merge, the tag and GitHub release are created together with
+   `gh release create`, which puts the tag on upstream `main`.
+
+Remotes in the clone: `origin` = `cms-analysis` upstream, `myself` = the
+user's fork. Check with `git remote -v` before pushing.
+
 ## Input
 
 The target version, `vX.Y.Z` (e.g. `v10.7.0`). If the user didn't give
@@ -23,10 +38,17 @@ anything else (that's the same regex `check-version.sh` enforces).
 
 ## Hard guardrails
 
-- **Never `git push`, push a tag, or create a GitHub release without
-  explicit confirmation** in that turn — these are public and hard to
-  undo. Editing files, running the checker, tagging locally, and
+- **Never push anything to `origin` (upstream)** — no branch, no `main`,
+  no tag. Upstream `main` only changes through the merged PR, and the tag
+  is created by `gh release create` (step 8).
+- **Never push to the fork or create a GitHub release without explicit
+  confirmation** in that turn — these are public and hard to undo. Never
+  open or merge the PR yourself; the user does that in the GitHub UI.
+  Creating the branch, editing files, running the checker, and
   committing locally are fine to do directly.
+- **Never create the tag locally or before the PR is merged.** GitHub may
+  merge with a new commit (merge/squash/rebase), so the release commit is
+  only known once it is on upstream `main`.
 - **`check-version.sh` MUST pass before you commit.** Do not commit a
   partial bump.
 - **Never claim the test references were regenerated unless you
@@ -37,8 +59,19 @@ anything else (that's the same regex `check-version.sh` enforces).
 
 ### 1. Preflight
 
-- Confirm the working branch is the release branch (usually `main`) and
-  the tree has no unrelated uncommitted changes (`git status`).
+- Make sure the tree has no uncommitted changes (`git status`). If it
+  does, stop and ask — do not stash or discard them yourself.
+- Make sure the tag and branch are new: `git ls-remote --tags origin
+  vX.Y.Z` must print nothing, and `cut_vX.Y.Z` must not exist locally or
+  on `myself` (`git branch --list cut_vX.Y.Z`,
+  `git ls-remote --heads myself cut_vX.Y.Z`). If either exists, stop and
+  ask.
+- Create the release branch from **up-to-date upstream** `main` (not a
+  possibly stale local `main`):
+  ```bash
+  git fetch origin
+  git switch -c cut_vX.Y.Z origin/main
+  ```
 - Find the **current** version so replacements are exact:
   `grep combineTagString bin/combine.cpp` → e.g. `v10.6.0`. Call it
   `vOLD`. You'll replace `vOLD` → the new version in the edits below.
@@ -140,39 +173,66 @@ Read its output and **fix what it reports**, then re-run until clean:
 Only proceed when the script reports no FAILs (the release-notes WARNING
 is acceptable).
 
-### 6. Commit (local — safe)
+### 6. Commit on the release branch (local — safe)
+
+Confirm you are on `cut_vX.Y.Z` (`git branch --show-current`), then:
 
 ```bash
 git add bin/combine.cpp docs/index.md test/references/*.out
 git commit -m "Update version to vX.Y.Z"
 ```
 
-### 7. Tag and push — CONFIRM FIRST
+### 7. Push to the fork and hand over the PR — CONFIRM FIRST
 
-Create the annotated tag locally, then **stop and confirm with the user
-before pushing** (this publishes the release commit and tag):
-
-```bash
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-# after explicit confirmation:
-git push origin main
-git push origin vX.Y.Z
-```
-
-### 8. GitHub release — CONFIRM FIRST
-
-Draft the release from the tag. Release notes need real content — offer
-to summarize changes since `vOLD` (`git log vOLD..vX.Y.Z --oneline`) as
-a starting point, but let the user edit them. With the `gh` CLI, after
-confirmation:
+Show the user the commit (`git show --stat HEAD`), then **stop and
+confirm** before pushing. After explicit confirmation, push to the fork
+only:
 
 ```bash
-gh release create vX.Y.Z --title "vX.Y.Z" --notes-file <notes>
+git push -u myself cut_vX.Y.Z
 ```
 
-Or point them at the Releases page to draft it manually. Creating the
-release is what makes the docs release-notes link (the step-5 WARNING)
-resolve.
+Then hand over to the user. They open the PR themselves in the GitHub
+UI, from `maxgalli:cut_vX.Y.Z` into `cms-analysis:main`. Give them the
+compare link:
+`https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit/compare/main...maxgalli:HiggsAnalysis-CombinedLimit:cut_vX.Y.Z`
+
+They merge it once CI passes. **Do not open or merge the PR, and do not
+continue to step 8 until the user says it is merged.** While waiting you
+may help read CI results (`gh pr checks <N>`); if CI fails, fix it with
+new commits on `cut_vX.Y.Z`, re-run `check-version.sh`, and push to
+`myself` again (with confirmation).
+
+### 8. Tag + GitHub release after the merge — CONFIRM FIRST
+
+Once the user says the PR is merged:
+
+1. Fetch and verify that upstream `main` really carries the release:
+   ```bash
+   git fetch origin
+   git show origin/main:bin/combine.cpp | grep combineTagString   # must show vX.Y.Z
+   ```
+   Use the merged commit on `origin/main` as the release target:
+   `REL_SHA=$(git rev-parse origin/main)`. If more PRs were merged after
+   the release PR, ask the user which commit to tag instead of assuming
+   the tip.
+2. Draft release notes. They need real content — offer to summarize
+   changes since `vOLD` (`git log vOLD..$REL_SHA --oneline`) as a starting
+   point, but let the user edit them.
+3. After explicit confirmation, create the release. `gh release create`
+   also creates the tag `vX.Y.Z` on upstream at `--target` — no local tag
+   and no `git push` of a tag:
+   ```bash
+   gh release create vX.Y.Z --repo cms-analysis/HiggsAnalysis-CombinedLimit \
+     --target "$REL_SHA" --title "vX.Y.Z" --notes-file <notes>
+   ```
+   Or the user creates it in the Releases page UI, choosing "Create new
+   tag: vX.Y.Z on publish" with target `main`.
+
+Creating the release is what makes the docs release-notes link (the
+step-5 WARNING) resolve. Afterwards, `git fetch origin --tags` so the new
+tag is visible locally, and offer to delete the merged local branch
+(`git branch -d cut_vX.Y.Z`).
 
 ### 9. Verify docs deployment
 
@@ -183,12 +243,16 @@ show `vX.Y.Z`.
 
 ## Summary of what you automate vs. gate
 
-- **Automate directly:** find current version, edit the 3 files, and —
-  once the reference-file path is decided (step 4) — run the checker in a
-  fix→recheck loop, `git add`/`commit` once clean. The Path B marker
-  replacement is safe to do directly.
+- **Automate directly:** create `cut_vX.Y.Z` from `origin/main`, find
+  current version, edit the 3 files, and — once the reference-file path
+  is decided (step 4) — run the checker in a fix→recheck loop,
+  `git add`/`commit` once clean. The Path B marker replacement is safe to
+  do directly.
 - **Ask the user:** which reference-file path to take (step 4) — results
   changed → regenerate (Path A), unchanged → marker replacement (Path B).
 - **Gate (confirm first):** regenerating references needs a
-  `BUILD_TESTS` build (step 4 Path A); pushing branch + tag (step 7);
-  creating the GitHub release + notes (step 8).
+  `BUILD_TESTS` build (step 4 Path A); pushing `cut_vX.Y.Z` to `myself`
+  (step 7); creating the tag + GitHub release after the merge (step 8).
+- **User does it, never you:** opening and merging the PR (step 7).
+- **Never:** any push to `origin`, a local tag, or a direct change to
+  `main`.
