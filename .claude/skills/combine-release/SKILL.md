@@ -216,23 +216,57 @@ Once the user says the PR is merged:
    `REL_SHA=$(git rev-parse origin/main)`. If more PRs were merged after
    the release PR, ask the user which commit to tag instead of assuming
    the tip.
-2. Draft release notes. They need real content — offer to summarize
-   changes since `vOLD` (`git log vOLD..$REL_SHA --oneline`) as a starting
-   point, but let the user edit them.
-3. After explicit confirmation, create the release. `gh release create`
-   also creates the tag `vX.Y.Z` on upstream at `--target` — no local tag
-   and no `git push` of a tag:
+2. Generate the release notes **with GitHub, in the style of the
+   previous releases** — do not write your own. Before generating, look
+   at the last couple of releases to confirm the convention still holds:
+   ```bash
+   gh api "repos/cms-analysis/HiggsAnalysis-CombinedLimit/releases?per_page=3" \
+     --jq '.[] | select(.draft|not) | "== \(.name)\n\(.body)\n"'
+   ```
+   The convention (v10.5.1 … v11.0.0):
+   - **Title:** `Combine vX.Y.Z` (not just `vX.Y.Z`).
+   - **Body:** GitHub's auto-generated notes, unedited — `## What's
+     Changed` with one line per PR (`* <title> by @user in <PR url>`,
+     long titles truncated by GitHub with `…`), `## New Contributors`
+     when there are any, and `**Full Changelog**: …compare/vOLD...vX.Y.Z`.
+   - **No** extra sections (no "Highlights", no intro paragraph), no
+     regrouping or rewording of PR lines. The only addition seen is a
+     short note appended to the version-bump PR line when the release
+     changes the CMSSW/ROOT target (e.g. v11.0.0: `… /pull/1262 - this
+     targets CMSSW 16_0_0 with ROOT 6.36.07`); add one only if the user
+     asks.
+
+   Generate them with the same endpoint GitHub's "Generate release
+   notes" button uses:
+   ```bash
+   gh api -X POST repos/cms-analysis/HiggsAnalysis-CombinedLimit/releases/generate-notes \
+     -f tag_name=vX.Y.Z -f target_commitish="$REL_SHA" -f previous_tag_name=vOLD \
+     --jq .body > <notes>
+   ```
+   Show the notes to the user.
+3. After explicit confirmation, create the release **as a draft** unless
+   the user asks to publish directly. A draft does not create the tag;
+   GitHub creates `vX.Y.Z` on `--target` when the draft is published, so
+   there is never a local tag or a `git push` of a tag:
    ```bash
    gh release create vX.Y.Z --repo cms-analysis/HiggsAnalysis-CombinedLimit \
-     --target "$REL_SHA" --title "vX.Y.Z" --notes-file <notes>
+     --draft --target "$REL_SHA" --title "Combine vX.Y.Z" --notes-file <notes>
    ```
-   Or the user creates it in the Releases page UI, choosing "Create new
-   tag: vX.Y.Z on publish" with target `main`.
+   Give the user the draft URL (it is a temporary `.../releases/tag/untagged-…`
+   link, and it changes whenever the draft is edited) and tell them to check
+   it in the UI: Releases page → the Draft → Edit; verify tag `vX.Y.Z`
+   (new, created on publish), target = the release commit, title, notes
+   preview and "Set as the latest release"; then **Publish release**. To
+   change an existing draft use `gh release edit vX.Y.Z --repo … --draft=true
+   --title … --notes-file …` (keep `--draft=true` so it is not published).
 
-Creating the release is what makes the docs release-notes link (the
-step-5 WARNING) resolve. Afterwards, `git fetch origin --tags` so the new
-tag is visible locally, and offer to delete the merged local branch
-(`git branch -d cut_vX.Y.Z`).
+Publishing the release is what creates the tag and makes the docs
+release-notes link (the step-5 WARNING) resolve. After the user says it
+is published, check the tag: `git fetch origin --tags` and
+`git rev-parse vX.Y.Z^{commit}` must equal `$REL_SHA`. Then offer to
+delete the merged release branch, locally (`git branch -d cut_vX.Y.Z`)
+and on the fork (`git push myself --delete cut_vX.Y.Z`, with
+confirmation).
 
 ### 9. Verify docs deployment
 
@@ -252,7 +286,11 @@ show `vX.Y.Z`.
   changed → regenerate (Path A), unchanged → marker replacement (Path B).
 - **Gate (confirm first):** regenerating references needs a
   `BUILD_TESTS` build (step 4 Path A); pushing `cut_vX.Y.Z` to `myself`
-  (step 7); creating the tag + GitHub release after the merge (step 8).
+  (step 7); creating the draft GitHub release after the merge (step 8).
+- **Follow the previous releases' conventions:** title `Combine vX.Y.Z`,
+  body = GitHub's generated notes, unedited (step 8).
+- **User does it in the UI:** publishing the draft, which creates the tag
+  (step 8).
 - **User does it, never you:** opening and merging the PR (step 7).
 - **Never:** any push to `origin`, a local tag, or a direct change to
   `main`.
